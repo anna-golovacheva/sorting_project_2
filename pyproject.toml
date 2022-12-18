@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "sorting-project-2"
+version = "0.1.0"
+description = ""
+authors = ["anna-golovacheva <anna.ch.ollala@gmail.com>"]
+readme = "README.md"
+packages = [{include = "sorting_project_2"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^1.5.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
