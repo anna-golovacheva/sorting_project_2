@@ -10,6 +10,9 @@ packages = [{include = "sorting_project_2"}]
 python = "^3.10"
 pandas = "^1.5.2"
 
+[tool.poetry.scripts]
+get-sorted = 'sorting_project_2.main:run_sorting'
+get-banch = 'sorting_project_2.main:run_getting_by_date'
 
 [build-system]
 requires = ["poetry-core"]

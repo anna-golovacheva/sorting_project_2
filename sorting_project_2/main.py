@@ -1,146 +1,112 @@
 import os
-import csv
 import pandas as pd
 
 
-def create_folder():
-    try:
-        os.mkdir('../data/temp')
-    except FileExistsError:
-        print('folder exists')
+def select_sorted(sort_columns: list, order: str, filename: str, limit=None) -> None:
+    """
+    Функция сортирует данные по выбранной колонке. Отсортированные данные в
+    выбранном порядке сохраняются в файл по выбранному адресу.
+    :param sort_columns: list
+    :param order: str
+    :param filename: str
+    :param limit: int | None
+    :return: None
+    """
+    path_for_starter_file = 'data/all_stocks_5yr.csv'
+    path_for_hash = f'data/hash/select_sorted_{"_".join(sort_columns)}_{order}_{limit}.csv'
+    if os.path.exists(path_for_hash):
+        df = pd.read_csv(path_for_hash)
+    else:
+        ascending_value = False if order == 'desc' else True
+        df = pd.read_csv(path_for_starter_file)
+        df.sort_values(by=sort_columns, inplace=True, na_position='first', ascending=ascending_value)
+        if limit:
+            df = df.iloc[:limit]
+        df.to_csv(path_for_hash, index=False)
+    df.to_csv(filename, index=False)
 
 
-def save_data_chunk(data, counter):
-    with open(f'../data/temp/{counter}.csv', 'w+') as data_chunk:
-        data_chunk.writelines(data)
+def get_by_date(date: str, name: str, filename: str) -> None:
+    """
+    Функция записывает результат запроса с выбранными датой и названием тикера в выбранный файл.
+    :param date: str
+    :param name: str
+    :param filename: str
+    :return: None
+    """
+    path_for_hash = f'data/hash/get_by_date_{date}_{name}.csv'
+
+    if os.path.exists(path_for_hash):
+        df = pd.read_csv(path_for_hash)
+    else:
+        df = pd.read_csv('data/sorted_dump.csv')
+
+        if date != 'all' and name != 'all':
+            df.query('date == @date & Name == @name', inplace=True)
+        elif date == 'all' and name != 'all':
+            df.query('Name == @name', inplace=True)
+        elif date != 'all' and name == 'all':
+            df.query('date == @date', inplace=True)
+
+        df.to_csv(path_for_hash, index=False)
+
+    df.to_csv(filename, index=False)
 
 
-def file_divider(file_name, batch_size):
-    create_folder()
-    chunk_counter = 0
-    lines_counter = 0
-    with open(f'../data/{file_name}') as file:
-        header = next(file)
-        data_for_save = [header]
-        for row in file:
-            if lines_counter >= batch_size:
-                lines_counter = 0
-                chunk_counter += 1
-                save_data_chunk(data_for_save, chunk_counter)
-                data_for_save = [header]
-
-            data_for_save.append(row)
-            lines_counter += 1
-        chunk_counter += 1
-        if len(data_for_save) > 0:
-            save_data_chunk(data_for_save, chunk_counter)
-
-    return chunk_counter
-
-
-def sort_files(chunk_counter, sort_key):
-    sort_key_dict = {
-        'date': 0,
-        'open': 1,
-        'high': 2,
-        'low': 3,
-        'close': 4,
-        'volume': 5,
-        'Name': 6
+def run_sorting() -> None:
+    """
+    Функция позволяет выбрать параметры вызова функции select_sorted.
+    :return: None
+    """
+    sorting_dict = {
+        '0': 'date',
+        '1': 'open',
+        '2': 'high',
+        '3': 'low',
+        '4': 'close',
+        '5': 'volume',
+        '6': 'Name'
     }
-    for i in range(chunk_counter):
-        df = pd.read_csv(f'../data/temp/{i + 1}.csv')
-        df.sort_values(by=[sort_key], inplace=True)
-        df.to_csv(index=False)
+    sort_column = input('Choose sorting:/nby date (0)\nby open price (1)\nby high price [2]\nby low price (3)\nby close price (4)\nby volume (5)\nby name (6) > ')
+    sort_by = sorting_dict['2'] if sort_column == '' or '2' else sorting_dict[sort_column]
+
+    order = input('Choose order of data: descending [1] / ascending (2) > ')
+    order_by = 'desc' if order == '' or '1' else 'asc'
+
+    limit = input('Choose limit of data [10]: > ')
+    limited = None if limit == 'None' else (10 if limit == '' else int(limit))
+
+    file = input('Choose file name for data dump [dump.csv]: > ')
+    if file == '':
+        file = 'dump.csv'
+    file_path = 'data/' + file
+
+    select_sorted(sort_columns=[sort_by], order=order_by, limit=limited, filename=file_path)
+
+    print(f'data saved to {file_path}')
 
 
-def write_all_to_file(file_reader, result_file):
-    for row in file_reader:
-        result_file.writerow(row)
+def run_getting_by_date() -> None:
+    """
+    Функция позволяет выбрать параметры вызова функции get_by_date.
+    :return: None
+    """
+    date = input('Choose date as yyyy-mm-dd [all]: > ')
+    if date == '':
+        date = 'all'
+    ticker = input('Choose ticker [all]: > ')
+    if ticker == '':
+        ticker = 'all'
+    file = input('Choose file name for data dump [dump_date.csv]: > ')
+    if file == '':
+        file = 'dump_by_date.csv'
+    file_path = 'data/' + file
+
+    get_by_date(date=date, name=ticker, filename=file_path)
+
+    print(f'data saved to {file_path}')
 
 
-def concatenate_files(chunks, sort_key):
-    for i in range(chunks):
-
-        file = open(f'../data/temp/{i + 1}.csv')
-
-        reader = csv.DictReader(file)
-
-        file_for_result = open(f'../data/result{i + 1}.csv', 'w', newline='')
-        fieldnames = list(reader.fieldnames)
-        result_writer = csv.DictWriter(file_for_result, fieldnames)
-        result_writer.writeheader()
-
-        if i == 0:
-            write_all_to_file(reader, result_writer)
-        else:
-            previous_file = open(f'../data/result{i}.csv')
-            previous_reader = csv.DictReader(previous_file)
-
-            row_i = reader.__next__()
-            previous_file_row = previous_reader.__next__()
-
-            while True:
-                if sort_key in ['open', 'high', 'low', 'close']:
-                    if row_i[sort_key] != '':
-                        var_1 = float(row_i[sort_key])
-                    else:
-                        var_1 = 0.0
-                    if previous_file_row[sort_key] != '':
-                        var_2 = float(previous_file_row[sort_key])
-                    else:
-                        var_2 = 0.0
-                elif sort_key == 'volume':
-                    if row_i[sort_key] != '':
-                        var_1 = int(row_i[sort_key])
-                    else:
-                        var_1 = 0
-                    if previous_file_row[sort_key] != 0:
-                        var_2 = int(previous_file_row[sort_key])
-                    else:
-                        var_2 = 0
-                elif sort_key in ['date', 'Name']:
-                    var_1 = row_i[sort_key]
-                    var_2 = previous_file_row[sort_key]
-                else:
-                    raise ValueError('no such sort key')
-
-                if var_1 > var_2:
-                    result_writer.writerow(previous_file_row)
-                    try:
-                        previous_file_row = previous_reader.__next__()
-                    except:
-                        write_all_to_file(reader, result_writer)
-                        break
-
-                else:
-                    result_writer.writerow(row_i)
-                    try:
-                        row_i = reader.__next__()
-                    except:
-                        write_all_to_file(previous_reader, result_writer)
-                        break
-
-            previous_file.close()
-
-        file_for_result.close()
-        file.close()
-#
-# def clear_files(batches_count):
-#     rmtree('../data/temp')
-#     for i in range(batches_count - 1):
-#         os.remove(f'../data/result{i + 1}.csv')
-#
-#     os.rename(f'../data/result{batches_count}.csv', 'data/result.csv')
-
-
-def global_sorter():
-    chunk_counter = file_divider('all_stocks_5yr.csv', 100000)
-    sort_files(chunk_counter, 'high')
-    concatenate_files(chunk_counter, 'high')
-
-    # file_sorters(batches_count)
-    # concatenate_files(batches_count)
-    # # clear_files(batches_count)
-
-global_sorter()
+if __name__ == '__main__':
+    run_sorting()
+    run_getting_by_date()
